@@ -1,0 +1,8 @@
+input: void 31 wall 365
+observed matched Delta BLINDED = +0.0234 se=0.0343 (n=27)
+RA-shuffle null: mean=+0.0039 sd=0.0325 frac|>=obs|=0.478
+block-bootstrap: mean=+0.0232 sd=0.0325 (vs analytic se=0.0343)
+inject +0.00: recovered mean=+0.0200 (expect ~+0.0234)
+inject +0.05: recovered mean=+0.0730 (expect ~+0.0734)
+inject -0.05: recovered mean=-0.0271 (expect ~-0.0266)
+nulls done (BLINDED; no unblinding)
