@@ -40,8 +40,10 @@ vrad = np.array([v[3] for v in voids])
 tree = cKDTree(vxyz)
 maxRv = vrad.max()
 
-# Observed counts from parquet (cosmo-grade already applied upstream)
+# Observed counts from parquet; non-SN transients (TDE/Ca-rich/other = 14) excluded from
+# all cosmology rows (retained only in All-types table row, generated separately).
 obs = pd.read_parquet("data/b3_match_v2.parquet")
+obs = obs[~obs["type"].str.contains("TDE|Ca-rich|^other$")].copy()
 is_ia = obs["type"] == "SN Ia"
 is_cc = obs["type"].str.contains("SN II|SN Ib|SN Ic|SLSN")
 for name, sub in [("all", obs), ("Ia-only", obs[is_ia]), ("CC-only", obs[is_cc])]:
@@ -75,13 +77,15 @@ for seed in [42, 43, 44]:
     for i in range(len(sxyz)):
         cand = tree.query_ball_point(sxyz[i], r=maxRv * 1.2)
         rr[i] = np.inf if not cand else min(np.linalg.norm(sxyz[i] - vxyz[j]) / vrad[j] for j in cand)
-    f_runs.append(((rr < 0.8).mean(), ((rr >= 0.8) & (rr <= 1.0)).mean(), (rr > 1.0).mean(), len(ra)))
-    print(f"seed {seed}: in-mask {len(ra)} f_void={f_runs[-1][0]:.4f}")
+    f_runs.append(((rr < 0.8).mean(), ((rr >= 0.8) & (rr <= 1.0)).mean(),
+                    ((rr > 1.0) & np.isfinite(rr)).mean(), np.isinf(rr).mean(), len(ra)))
+    print(f"seed {seed}: in-mask {len(ra)} f_void={f_runs[-1][0]:.4f} f_out={f_runs[-1][3]:.4f}")
 f_void = float(np.mean([r[0] for r in f_runs]))
 f_shell = float(np.mean([r[1] for r in f_runs]))
 f_wall = float(np.mean([r[2] for r in f_runs]))
+f_out = float(np.mean([r[3] for r in f_runs]))
 f_void_se = float(np.std([r[0] for r in f_runs], ddof=1))
-print(f"f_rand void={f_void:.4f}+/-{f_void_se:.4f} shell={f_shell:.4f} wall={f_wall:.4f}")
+print(f"f_rand void={f_void:.4f}+/-{f_void_se:.4f} shell={f_shell:.4f} wall-finite={f_wall:.4f} out={f_out:.4f}")
 
 # Errors: seed spread across 42/43/44 is sightline Monte Carlo only.
 # Cosmic variance needs HR4 mocks (TBD); no void-resampling claimed.
@@ -98,6 +102,6 @@ for name, sub in [("all", obs), ("Ia-only", obs[is_ia]), ("CC-only", obs[is_cc])
 with open("data/randoms_summary.txt", "w") as o:
     o.write("seeds=42,43,44 (sightline MC only; cosmic variance via mocks TBD)\n")
     o.write(f"sky_frac_cosw={sky_frac:.4f}\n")
-    o.write(f"f_void={f_void:.4f}+/-{f_void_se:.4f}\nf_shell={f_shell:.4f}\nf_wall={f_wall:.4f}\n")
+    o.write(f"f_void={f_void:.4f}+/-{f_void_se:.4f}\nf_shell={f_shell:.4f}\nf_wall_finite={f_wall:.4f}\nf_out={f_out:.4f}\n")
     o.write(f"Veff_tot={Veff_tot:.6e}\nmask=1deg quantized LIMITATION, boundary buffer TBD\n")
 print("wrote data/randoms_summary.txt")
