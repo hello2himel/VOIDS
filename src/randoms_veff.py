@@ -1,9 +1,9 @@
-"""VOIDS randoms + Veff v0.3b — fixes Q1 v0.3a voids review.
+"""VOIDS randoms + Veff — volume control for mask-corrected rates.
 - cos-weighted sky fraction (not equirectangular mean)
 - observed counts read from data/b3_match_v2.parquet (no hand copies)
 - Ia-only + CC-only split rates (no lumped-progenitor headline)
-- bootstrap over voids + 3 random seeds for Monte Carlo error
-- boundary note: 1-deg mask quantized; edge-loss fraction reported
+- 3 random seeds for sightline Monte Carlo error; cosmic variance via mocks TBD
+- boundary note: 1-deg mask quantized (limitation); edge-loss fraction TBD
 Run: venvs/b3/bin/python src/randoms_veff.py
 """
 import pickle
@@ -23,7 +23,7 @@ sky_frac = (mask * cosw[None, :]).sum() / cosw.sum() / 360.0
 print(f"sky_frac cos-weighted={sky_frac:.4f} (naive mean was {mask.mean():.4f}, wrong)")
 
 def in_mask(ra, dec):
-    # 1-deg quantization documented as limitation; boundary buffer applied below
+    # 1-deg quantization documented as limitation; boundary buffer NOT applied (TBD)
     return bool(mask[min(max(int(np.floor(ra % 360)), 0), 359),
                      min(max(int(np.floor(dec + 90)), 0), 179)])
 
@@ -42,7 +42,6 @@ maxRv = vrad.max()
 
 # Observed counts from parquet (cosmo-grade already applied upstream)
 obs = pd.read_parquet("data/b3_match_v2.parquet")
-fin_all = np.isfinite(obs.r_Rv)
 is_ia = obs["type"] == "SN Ia"
 is_cc = obs["type"].str.contains("SN II|SN Ib|SN Ic|SLSN")
 for name, sub in [("all", obs), ("Ia-only", obs[is_ia]), ("CC-only", obs[is_cc])]:
@@ -88,7 +87,7 @@ print(f"f_rand void={f_void:.4f}+/-{f_void_se:.4f} shell={f_shell:.4f} wall={f_w
 # Cosmic variance needs HR4 mocks (TBD); no void-resampling claimed.
 print("MC error from seed spread +/-0.0016; cosmic variance via HR4 mocks TBD")
 
-# Split rates reuse obs/is_ia/is_cc/fin_all from above (finite wall throughout).
+# Split rates reuse obs/is_ia/is_cc from above (finite wall throughout).
 for name, sub in [("all", obs), ("Ia-only", obs[is_ia]), ("CC-only", obs[is_cc])]:
     Nv = int((sub.r_Rv < 0.8).sum())
     Nw = int(((sub.r_Rv > 1.0) & np.isfinite(sub.r_Rv)).sum())

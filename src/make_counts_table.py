@@ -1,14 +1,90 @@
-"""VOIDS counts table generator -- single source of truth (fixes hand-copy incoherence).
-Reads data/b3_match_v2.parquet, writes tables + macros. Wall means finite 1.0<r/Rv<inf; inf is 'outside' (60).
+"""VOIDS counts table generator -- single source of truth.
+Reads data/b3_match_v2.parquet (cosmo) + BTS CSV + voids + mask (all-types recomputed, no log copies).
+Writes paper/tables/tab_counts.tex + paper/tables/numbers.tex (paper inputs both; never hand numbers).
+Wall means finite 1.0<r/Rv<inf; inf is Outside (tabulated, not dropped).
 Run: venvs/b3/bin/python src/make_counts_table.py
 """
-import pandas as pd
+import csv
+import pickle
 import numpy as np
+import pandas as pd
+from scipy.spatial import cKDTree
 
+H = 0.7
+with open("data/vast/NSA_main_mask.pickle", "rb") as f:
+    mask, _, _ = pickle.load(f)
+
+def in_mask(ra, dec):
+    return bool(mask[min(max(int(np.floor(ra % 360)), 0), 359),
+                     min(max(int(np.floor(dec + 90)), 0), 179)])
+
+def parse_ra(hms):
+    h, m, s = [float(x) for x in hms.split(":")]
+    return (h + m / 60 + s / 3600) * 15.0
+
+def parse_dec(dms):
+    sign = -1 if dms.strip()[0] == "-" else 1
+    dms = dms.strip().lstrip("+-")
+    d, m, s = [float(x) for x in dms.split(":")]
+    return sign * (d + m / 60 + s / 3600)
+
+voids = []
+with open("data/vast/VoidFinder-nsa_v1_0_1_Planck2018_comoving_maximal.txt", encoding="utf-8-sig") as f:
+    for line in f:
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        p = line.split()
+        voids.append((float(p[0]) / H, float(p[1]) / H, float(p[2]) / H, float(p[3]) / H))
+vxyz = np.array([[v[0], v[1], v[2]] for v in voids])
+vrad = np.array([v[3] for v in voids])
+tree = cKDTree(vxyz)
+maxRv = vrad.max()
+
+# All-types masked: recompute from BTS CSV (no log copies)
+from astropy.cosmology import Planck18
+from astropy.coordinates import SkyCoord
+import astropy.units as u
+rows = []
+with open("data/bts/bts_explorer_quality.csv", newline="", encoding="utf-8-sig") as f:
+    for r in csv.DictReader(l for l in f if l.strip()):
+        try:
+            z = float(r["redshift"]) if r["redshift"].strip() not in ("", "-", "?") else None
+        except Exception:
+            z = None
+        if z is None or not (0.01 <= z <= 0.114):
+            continue
+        try:
+            ra = parse_ra(r["RA"].strip())
+            dec = parse_dec(r["Dec"].strip())
+        except Exception:
+            continue
+        if not in_mask(ra, dec):
+            continue
+        rows.append((ra, dec, z))
+cc = SkyCoord(ra=[t[0] for t in rows] * u.deg, dec=[t[1] for t in rows] * u.deg,
+              distance=Planck18.comoving_distance([t[2] for t in rows]))
+sxyz = np.vstack([cc.cartesian.x.value, cc.cartesian.y.value, cc.cartesian.z.value]).T
+a_void = a_shell = a_wall = a_out = 0
+for i in range(len(sxyz)):
+    cand = tree.query_ball_point(sxyz[i], r=maxRv * 1.2)
+    if not cand:
+        a_out += 1
+        continue
+    v = min(np.linalg.norm(sxyz[i] - vxyz[j]) / vrad[j] for j in cand)
+    if v < 0.8:
+        a_void += 1
+    elif v <= 1.0:
+        a_shell += 1
+    else:
+        a_wall += 1
+a_tot = len(rows)
+print(f"all-types masked recomputed: N={a_tot} void={a_void} shell={a_shell} wall={a_wall} outside={a_out}")
+assert a_void + a_shell + a_wall + a_out == a_tot
+
+# Cosmo-grade from parquet (finite wall, inf outside)
 df = pd.read_parquet("data/b3_match_v2.parquet")
 fin = np.isfinite(df.r_Rv)
-# NOTE: b3_match_v2.parquet is masked+cosmo only (2381). All-types masked counts from v2 log:
-# MASKED all-types: wall 1950 / shell 271 / void 183 / outside 61 (total 2465). Recompute Ia/CC here:
 is_ia = df["type"] == "SN Ia"
 is_cc = df["type"].str.contains("SN II|SN Ib|SN Ic|SLSN")
 n_void = int((df.r_Rv < 0.8).sum())
@@ -19,25 +95,41 @@ n_ia_void = int(((df.r_Rv < 0.8) & is_ia).sum())
 n_ia_wall = int(((df.r_Rv > 1.0) & fin & is_ia).sum())
 n_cc_void = int(((df.r_Rv < 0.8) & is_cc).sum())
 n_cc_wall = int(((df.r_Rv > 1.0) & fin & is_cc).sum())
-print(f"cosmo N={len(df)} void={n_void} shell={n_shell} wall={n_wall} outside/inf={n_out}")
-print(f"Ia void={n_ia_void} wall={n_ia_wall} | CC void={n_cc_void} wall={n_cc_wall}")
-assert n_void + n_shell + n_wall + n_out == len(df), "env partition must sum"
+assert n_void + n_shell + n_wall + n_out == len(df)
+print(f"cosmo N={len(df)} void={n_void} shell={n_shell} wall={n_wall} outside={n_out}")
+
+# Rates from randoms_summary f values
+f_void = f_wall = None
+with open("data/randoms_summary.txt") as f:
+    for line in f:
+        if line.startswith("f_void="):
+            f_void = float(line.split("=")[1].split("+")[0])
+        if line.startswith("f_wall="):
+            f_wall = float(line.split("=")[1])
+R_all = (n_void / n_wall) * (f_wall / f_void)
+R_ia = (n_ia_void / n_ia_wall) * (f_wall / f_void)
+R_cc = (n_cc_void / n_cc_wall) * (f_wall / f_void)
+print(f"R all={R_all:.3f} Ia={R_ia:.3f} CC={R_cc:.3f}")
 
 with open("paper/tables/tab_counts.tex", "w") as f:
-    f.write("\\begin{table}\n\\caption{Masked sample composition. Cosmo-grade excludes 91T/91bg/pec/Iax/CSM/SC.}\n")
-    f.write("\\label{tab:counts}\n{\\small\\setlength{\\tabcolsep}{3pt}\n\\begin{tabular}{lrrrr}\n\\hline\n")
-    f.write("Sample & Total & Void & Shell & Wall \\\\\n\\hline\n")
-    f.write(f"All-types masked & 2465 & 183 & 271 & 1950 \\\\\n")
-    f.write(f"Cosmo-grade & {len(df)} & {n_void} & {n_shell} & {n_wall} \\\\\n")
-    f.write(f"Normal Ia & {int(is_ia.sum())} & {n_ia_void} & -- & {n_ia_wall} \\\\\n")
-    f.write(f"CC & {int(is_cc.sum())} & {n_cc_void} & -- & {n_cc_wall} \\\\\n")
+    f.write("\\begin{table}\n\\caption{Masked sample composition. Wall means finite $1.0<r/R_{\\max}<\\infty$; Outside is $r/R_{\\max}=\\infty$ (no void within $1.2\\max R_{\\max}$). Cosmo-grade excludes 91T/91bg/pec/Iax/CSM/SC.}\n")
+    f.write("\\label{tab:counts}\n{\\small\\setlength{\\tabcolsep}{3pt}\n\\begin{tabular}{lrrrrr}\n\\hline\n")
+    f.write("Sample & Total & Void & Shell & Wall & Outside \\\\\n\\hline\n")
+    f.write(f"All-types & {a_tot} & {a_void} & {a_shell} & {a_wall} & {a_out} \\\\\n")
+    f.write(f"Cosmo-grade & {len(df)} & {n_void} & {n_shell} & {n_wall} & {n_out} \\\\\n")
+    f.write(f"Normal Ia & {int(is_ia.sum())} & {n_ia_void} & -- & {n_ia_wall} & -- \\\\\n")
+    f.write(f"CC & {int(is_cc.sum())} & {n_cc_void} & -- & {n_cc_wall} & -- \\\\\n")
     f.write("\\hline\n\\end{tabular}}\n\\end{table}\n")
 with open("paper/tables/numbers.tex", "w") as f:
     f.write(f"\\newcommand{{\\NVoidCosmo}}{{{n_void}}}\n")
     f.write(f"\\newcommand{{\\NWallCosmo}}{{{n_wall}}}\n")
     f.write(f"\\newcommand{{\\NShellCosmo}}{{{n_shell}}}\n")
+    f.write(f"\\newcommand{{\\NOutCosmo}}{{{n_out}}}\n")
     f.write(f"\\newcommand{{\\NIaVoid}}{{{n_ia_void}}}\n")
     f.write(f"\\newcommand{{\\NIaWall}}{{{n_ia_wall}}}\n")
     f.write(f"\\newcommand{{\\NCCVoid}}{{{n_cc_void}}}\n")
     f.write(f"\\newcommand{{\\NCCWall}}{{{n_cc_wall}}}\n")
+    f.write(f"\\newcommand{{\\RRall}}{{{R_all:.2f}}}\n")
+    f.write(f"\\newcommand{{\\RRia}}{{{R_ia:.2f}}}\n")
+    f.write(f"\\newcommand{{\\RRcc}}{{{R_cc:.2f}}}\n")
 print("wrote paper/tables/tab_counts.tex paper/tables/numbers.tex")
