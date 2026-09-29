@@ -1,0 +1,20 @@
+\begin{table}
+\caption{Blinded $\Delta_{\rm HR}$ systematics budget (matched analysis). Stat error $0.034$ mag dominates; systematics summed below are bounds, not detections. Sources: \texttt{logs/dr2\_nulls.log}, \texttt{logs/dr2\_pv.log}, \texttt{logs/step\_zcut.log}, \texttt{logs/mask\_buffer\_h.log}.}
+\label{tab:budget}
+{\small\setlength{\tabcolsep}{4pt}
+\begin{tabular}{llc}
+\hline
+Source & Bound (mag) & Status \\
+\hline
+RA-shuffle null & mean $+0.004$, $p=0.48$ & pass \\
+Block bootstrap vs analytic & $0.033$ vs $0.034$ & agrees \\
+Injection 0.00/0.05 & recovers exactly & pass \\
+Mass linear vs step & $|0.031-0.037|=0.006$ & bounded \\
+$z_{\min}$ grid spread & $<0.002$ & bounded \\
+CMB-frame shift & $0.005$ & bounded \\
+Mask edge erosion & 3\% on fraction & subdom. \\
+PV flow model & diagonal only & open \\
+BTS efficiency/BBC & unmodeled & open \\
+\hline
+\end{tabular}}
+\end{table}
