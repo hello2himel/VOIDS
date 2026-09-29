@@ -42,12 +42,13 @@ maxRv = vrad.max()
 
 # Observed counts from parquet (cosmo-grade already applied upstream)
 obs = pd.read_parquet("data/b3_match_v2.parquet")
+fin_all = np.isfinite(obs.r_Rv)
 is_ia = obs["type"] == "SN Ia"
 is_cc = obs["type"].str.contains("SN II|SN Ib|SN Ic|SLSN")
 for name, sub in [("all", obs), ("Ia-only", obs[is_ia]), ("CC-only", obs[is_cc])]:
     v = (sub.r_Rv < 0.8).sum()
-    w = (sub.r_Rv > 1.0).sum()
-    print(f"obs {name}: N={len(sub)} void={v} wall={w}")
+    w = ((sub.r_Rv > 1.0) & np.isfinite(sub.r_Rv)).sum()
+    print(f"obs {name}: N={len(sub)} void={v} wall-finite={w}")
 
 zmin, zmax = 0.01, 0.114
 Vmin = Planck18.comoving_volume(zmin).value
@@ -83,26 +84,21 @@ f_wall = float(np.mean([r[2] for r in f_runs]))
 f_void_se = float(np.std([r[0] for r in f_runs], ddof=1))
 print(f"f_rand void={f_void:.4f}+/-{f_void_se:.4f} shell={f_shell:.4f} wall={f_wall:.4f}")
 
-# Bootstrap: resample the in-mask randoms (sightline Monte Carlo); cosmic variance via mocks TBD
-rng = np.random.default_rng(7)
-rr_all = []
-for seed, arr in [(42, None)]:
-    pass
-# Recompute quickly on seed-42 set stored above is complex; use seed spread as MC error:
-# f_void seeds 42/43/44 spread = +/-0.0016 (see log). Randoms-resample of pooled rr:
-pooled = None
-print("MC error from seed spread +/-0.0016; cosmic variance via HR4 mocks TBD (not this bootstrap)")
+# Errors: seed spread across 42/43/44 is sightline Monte Carlo only.
+# Cosmic variance needs HR4 mocks (TBD); no void-resampling claimed.
+print("MC error from seed spread +/-0.0016; cosmic variance via HR4 mocks TBD")
 
-# Split rates with honest errors (Poisson both arms + f Monte Carlo added in quadrature approx)
+# Split rates reuse obs/is_ia/is_cc/fin_all from above (finite wall throughout).
 for name, sub in [("all", obs), ("Ia-only", obs[is_ia]), ("CC-only", obs[is_cc])]:
     Nv = int((sub.r_Rv < 0.8).sum())
-    Nw = int((sub.r_Rv > 1.0).sum())
+    Nw = int(((sub.r_Rv > 1.0) & np.isfinite(sub.r_Rv)).sum())
     R = (Nv / (Veff_tot * f_void)) / (Nw / (Veff_tot * f_wall)) if Nw else float("nan")
     rel = float(np.sqrt(1 / max(Nv, 1) + 1 / max(Nw, 1) + (f_void_se / f_void) ** 2))
     print(f"rate {name}: Nv={Nv} Nw={Nw} R_volcorr={R:.3f} relerr~{rel:.2f} (APPARENT: no efficiency/host-mass correction)")
 
 with open("data/randoms_summary.txt", "w") as o:
-    o.write(f"seeds=42,43,44 + void-bootstrap 200x5000 seed7\nsky_frac_cosw={sky_frac:.4f}\n")
+    o.write("seeds=42,43,44 (sightline MC only; cosmic variance via mocks TBD)\n")
+    o.write(f"sky_frac_cosw={sky_frac:.4f}\n")
     o.write(f"f_void={f_void:.4f}+/-{f_void_se:.4f}\nf_shell={f_shell:.4f}\nf_wall={f_wall:.4f}\n")
     o.write(f"Veff_tot={Veff_tot:.6e}\nmask=1deg quantized LIMITATION, boundary buffer TBD\n")
 print("wrote data/randoms_summary.txt")

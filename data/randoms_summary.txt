@@ -1,0 +1,7 @@
+seeds=42,43,44 (sightline MC only; cosmic variance via mocks TBD)
+sky_frac_cosw=0.1771
+f_void=0.1730+/-0.0016
+f_shell=0.1491
+f_wall=0.6779
+Veff_tot=8.799168e+07
+mask=1deg quantized LIMITATION, boundary buffer TBD
