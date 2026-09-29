@@ -103,7 +103,7 @@ N, n_void, n_shell, n_wall, n_out = parts(np.ones(len(sn), bool))
 Nia, n_ia_void, n_ia_shell, n_ia_wall, n_ia_out = parts(is_ia.values)
 Ncc, n_cc_void, n_cc_shell, n_cc_wall, n_cc_out = parts(is_cc.values)
 assert n_void + n_shell + n_wall + n_out == N == 2367, (n_void, n_shell, n_wall, n_out, N)
-print(f"cosmo N={len(df)} void={n_void} shell={n_shell} wall={n_wall} outside={n_out}")
+print(f"cosmo SNe N={N} void={n_void} shell={n_shell} wall={n_wall} outside={n_out}")
 
 # Rates from randoms_summary f values
 f_void = f_wall = None
@@ -119,14 +119,14 @@ R_cc = (n_cc_void / n_cc_wall) * (f_wall / f_void)
 print(f"R all={R_all:.3f} Ia={R_ia:.3f} CC={R_cc:.3f}")
 
 with open("paper/tables/tab_counts.tex", "w") as f:
-    f.write("\\begin{table}\n\\caption{Masked sample composition. Wall means finite $1.0<r/R_{\\max}<\\infty$; Outside is $r/R_{\\max}=\\infty$ (no void within $1.2\\max R_{\\max}$). Cosmo rows are spectroscopically classified SNe only (TDE/Ca-rich/other excluded); CC includes 6 SLSN; Ia subtype audit (91T-like etc.) pending TNS.}\n")
-    f.write("\\label{tab:counts}\n{\\small\\setlength{\\tabcolsep}{3pt}\n\\begin{tabular}{lrrrrr}\n\\hline\n")
+    f.write("\\begin{table*}\n\\caption{Masked sample composition. Wall means finite $1.0<r/R_{\\max}<\\infty$; Outside is $r/R_{\\max}=\\infty$ (no void within $1.2\\max R_{\\max}$). Cosmo rows are spectroscopically classified SNe only (TDE/Ca-rich/other excluded); CC includes 6 SLSN; Ia subtype audit (91T-like etc.) pending TNS.}\n")
+    f.write("\\label{tab:counts}\n{\\small\\setlength{\\tabcolsep}{6pt}\n\\begin{tabular}{lrrrrr}\n\\hline\n")
     f.write("Sample & Total & Void & Shell & Wall & Outside \\\\\n\\hline\n")
     f.write(f"All-types & {a_tot} & {a_void} & {a_shell} & {a_wall} & {a_out} \\\\\n")
     f.write(f"Cosmo SNe & {N} & {n_void} & {n_shell} & {n_wall} & {n_out} \\\\\n")
     f.write(f"SN Ia & {Nia} & {n_ia_void} & {n_ia_shell} & {n_ia_wall} & {n_ia_out} \\\\\n")
     f.write(f"CC & {Ncc} & {n_cc_void} & {n_cc_shell} & {n_cc_wall} & {n_cc_out} \\\\\n")
-    f.write("\\hline\n\\end{tabular}}\n\\end{table}\n")
+    f.write("\\hline\n\\end{tabular}}\n\\end{table*}\n")
 with open("paper/tables/numbers.tex", "w") as f:
     f.write(f"\\newcommand{{\\NVoidCosmo}}{{{n_void}}}\n")
     f.write(f"\\newcommand{{\\NWallCosmo}}{{{n_wall}}}\n")

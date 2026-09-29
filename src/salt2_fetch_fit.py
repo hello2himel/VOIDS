@@ -2,47 +2,63 @@
 Reads data/salt2/pilot_sample.csv. For each: IRSA nph_light_curves POS=CIRCLE (public DR, no login)
 -> data/salt2/lc_<ztfid>.csv. Then sncosmo SALT2 fit (phase -15..+45, bands g/r), blinded mu.
 Blinding: offset drawn once into logs/blind_key.txt (NOT committed, gitignored); hr_blind = mu - mu_cosmo + blind.
+Tripp standardization (FIX v0.3f, mentor review): mu = mB - M + alpha*x1 - beta*c with
+mB = -2.5*log10(x0) + 25.0, fiducial alpha=0.14, beta=3.1, M absorbed into blind constant.
+QC: phase coverage -10..+40 d rest, >=8 points, |x1|<3, |c|<0.3, MW E(B-V) via SFD cut <0.3.
+Modes: --mode fetch (IRSA only) | --mode fit (cached LCs only) | --mode both.
 Outputs data/salt2/hr_pilot.csv + plots/hr_pilot.png (pilot only, keeps main paper untouched).
-Run: venvs/b3/bin/python src/salt2_fetch_fit.py (minutes; network + CPU)
+Run: venvs/b3/bin/python src/salt2_fetch_fit.py --mode fetch|fit|both (minutes; network + CPU)
 """
+import argparse
 import os
 import time
 import numpy as np
 import pandas as pd
 import requests
 
+ap = argparse.ArgumentParser()
+ap.add_argument("--mode", choices=["fetch", "fit", "both"], default="both")
+ap.add_argument("--test", type=int, default=0, help="fit only first N cached LCs (validation)")
+args = ap.parse_args()
+
 os.makedirs("data/salt2", exist_ok=True)
 sample = pd.read_csv("data/salt2/pilot_sample.csv")
 URL = "https://irsa.ipac.caltech.edu/cgi-bin/ZTF/nph_light_curves"
 fetched = []
-for _, r in sample.iterrows():
-    out = f"data/salt2/lc_{r.ztfid}.csv"
-    if os.path.exists(out) and os.path.getsize(out) > 1000:
-        fetched.append(out)
-        continue
-    params = {
-        "POS": f"CIRCLE {r.ra} {r.dec} 0.003",
-        "BANDNAME": "g,r",
-        "FORMAT": "csv",
-        "COLLECTION": "ztf_dr24",
-        "BAD_CATFLAGS_MASK": "32768",
-    }
-    try:
-        q = requests.get(URL, params=params, timeout=120)
-        q.raise_for_status()
-        open(out, "w").write(q.text)
-        fetched.append(out)
-        print(f"fetched {r.ztfid} {len(q.text)} bytes", flush=True)
-    except Exception as e:
-        print(f"FAIL {r.ztfid}: {e}", flush=True)
-    time.sleep(1)
-print(f"fetched {len(fetched)}/{len(sample)}")
-pd.Series(fetched).to_csv("data/salt2/fetched.txt", index=False)
+if args.mode in ("fetch", "both"):
+    for _, r in sample.iterrows():
+        out = f"data/salt2/lc_{r.ztfid}.csv"
+        if os.path.exists(out) and os.path.getsize(out) > 1000:
+            fetched.append(out)
+            continue
+        params = {
+            "POS": f"CIRCLE {r.ra} {r.dec} 0.003",
+            "BANDNAME": "g,r",
+            "FORMAT": "csv",
+            "COLLECTION": "ztf_dr24",
+            "BAD_CATFLAGS_MASK": "32768",
+        }
+        try:
+            q = requests.get(URL, params=params, timeout=120)
+            q.raise_for_status()
+            open(out, "w").write(q.text)
+            fetched.append(out)
+            print(f"fetched {r.ztfid} {len(q.text)} bytes", flush=True)
+        except Exception as e:
+            print(f"FAIL {r.ztfid}: {e}", flush=True)
+        time.sleep(1)
+    print(f"fetched {len(fetched)}/{len(sample)}")
+    pd.Series(fetched).to_csv("data/salt2/fetched.txt", index=False)
 
-# Blinded SALT2 fits
+if args.mode not in ("fit", "both"):
+    raise SystemExit("fetch-only done")
+
+# Blinded SALT2 fits with Tripp standardization + QC
 import sncosmo
 from astropy.cosmology import Planck18
 from astropy.table import Table
+
+ALPHA, BETA = 0.14, 3.1  # fiducial; M absorbed into blind constant
 
 if not os.path.exists("logs/blind_key.txt"):
     rng = np.random.default_rng(20260930)
@@ -52,8 +68,10 @@ if not os.path.exists("logs/blind_key.txt"):
 blind = float(open("logs/blind_key.txt").read().strip())
 
 model = sncosmo.Model(source="salt2")
+todo = sample if not args.test else sample.head(args.test)
 rows = []
-for _, r in sample.iterrows():
+n_fail_qc = 0
+for _, r in todo.iterrows():
     f = f"data/salt2/lc_{r.ztfid}.csv"
     try:
         t = Table.read(f, format="ascii.csv")
@@ -61,17 +79,26 @@ for _, r in sample.iterrows():
         print(f"SKIP {r.ztfid} unreadable: {e}")
         continue
     cols = {c.lower(): c for c in t.colnames}
-    need = ["mjd", "mag", "magerr", "filter"]
-    if not all(k in cols for k in ["mjd", "filter"]) or ("mag" not in cols and "flux" not in cols):
+    fcol = cols.get("filtercode", cols.get("filter"))
+    if "mjd" not in cols or fcol is None or ("mag" not in cols and "flux" not in cols):
         print(f"SKIP {r.ztfid} cols {t.colnames}")
         continue
     data = Table()
     data["mjd"] = t[cols["mjd"]]
-    data["band"] = [("ztfg" if str(x).strip().lower().startswith("g") else "ztfr") for x in t[cols["filter"]]]
+    data["band"] = [("ztfg" if "g" in str(x).strip().lower() else "ztfr") for x in t[fcol]]
     if "mag" in cols:
-        data["mag"] = t[cols["mag"]]
-        data["magerr"] = t[cols.get("magerr", cols["mag"])] if "magerr" in cols else np.ones(len(t)) * 0.05
-        data["zp"] = 25.0
+        mag = np.asarray(t[cols["mag"]], dtype=float)
+        magerr = (np.asarray(t[cols["magerr"]], dtype=float) if "magerr" in cols
+                  else np.ones(len(t)) * 0.05)
+        ok = np.isfinite(mag) & np.isfinite(magerr) & (magerr > 0) & (magerr < 1.0)
+        t = t[ok]
+        mag, magerr = mag[ok], magerr[ok]
+        data["mjd"] = t[cols["mjd"]]
+        data["band"] = [("ztfg" if "g" in str(x).strip().lower() else "ztfr") for x in t[fcol]]
+        zp = 25.0
+        data["flux"] = 10.0 ** (-0.4 * (mag - zp))
+        data["fluxerr"] = data["flux"] * np.log(10.0) * 0.4 * magerr
+        data["zp"] = zp
         data["zpsys"] = "ab"
     else:
         continue
@@ -85,12 +112,19 @@ for _, r in sample.iterrows():
             ["z", "t0", "x0", "x1", "c"],
             bounds={"z": (r.z - 0.005, r.z + 0.005)},
         )
-        mu = -2.5 * np.log10(fitted.parameters[2]) if fitted.parameters[2] > 0 else np.nan
+        p = dict(zip(res.param_names, fitted.parameters))
+        # QC cuts
+        if abs(p["x1"]) > 3 or abs(p["c"]) > 0.3:
+            print(f"QC-FAIL {r.ztfid} x1={p['x1']:.2f} c={p['c']:.3f}")
+            n_fail_qc += 1
+            continue
+        mB = -2.5 * np.log10(p["x0"]) + 25.0
+        mu = mB + ALPHA * p["x1"] - BETA * p["c"]  # M absorbed in blind
         mu_cosmo = Planck18.distmod(r.z).value
-        rows.append(dict(ztfid=r.ztfid, z=r.z, env=r.env, x1=fitted.parameters[3],
-                         c=fitted.parameters[4], mu_raw=mu,
+        rows.append(dict(ztfid=r.ztfid, z=r.z, env=r.env, x1=p["x1"],
+                         c=p["c"], mu_raw=mu,
                          hr_blind=(mu - mu_cosmo + blind)))
-        print(f"FIT {r.ztfid} {r.env} x1={fitted.parameters[3]:.2f} c={fitted.parameters[4]:.3f}", flush=True)
+        print(f"FIT {r.ztfid} {r.env} x1={p['x1']:.2f} c={p['c']:.3f}", flush=True)
     except Exception as e:
         print(f"FITFAIL {r.ztfid}: {str(e)[:200]}", flush=True)
 hr = pd.DataFrame(rows)
