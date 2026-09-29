@@ -5,3 +5,6 @@ __pycache__/
 venvs/
 *.log
 .DS_Store
+data/
+*.fits
+*.zip
