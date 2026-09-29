@@ -1,0 +1,7 @@
+agents.md
+__pycache__/
+*.pyc
+.venvs/
+venvs/
+*.log
+.DS_Store
