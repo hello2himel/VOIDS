@@ -1,0 +1,17 @@
+ours: void Ia 118 wall Ia 1493
+dr2 rows 3628, hosts 3628
+overlap with our Ia sample: 654
+{'wall': 551, 'void': 41} (shell/outside excluded from HR sample)
+after snia-cosmo+norm: 428 (void 34)
+after quality flags: 398 (void 31)
+z-source: {'z_gal': 314, 'z_snid': 71, 'z_SEDm': 7, 'z_nonSEDm': 6}
+after finite SALT2 params: 396 (void 31)
+M_fit sample mean over N=396 (cancels in void-wall difference)
+void: N=31 <HR>_blind=+0.0770 se=0.0122 <x1>=+0.082 <c>=+0.0226 <logM>=9.474
+wall: N=365 <HR>_blind=+0.0241 se=0.0035 <x1>=-0.207 <c>=+0.0200 <logM>=9.833
+Delta_HR(void-wall) BLINDED = +0.0529 se=0.0127
+void lowM: N=25 <HR>b=+0.1083
+void highM: N=6 <HR>b=-0.0559
+wall lowM: N=186 <HR>b=+0.0667
+wall highM: N=179 <HR>b=-0.0215
+wrote data/dr2_hr.csv N=396 (BLINDED; M_fit cancels in differences)

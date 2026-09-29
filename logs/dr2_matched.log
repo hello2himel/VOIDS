@@ -1,0 +1,4 @@
+matched voids: 27 / 31
+MATCHED Delta_HR BLINDED = +0.0234 se=0.0343 (mass+z matched, stat only)
+JOINT mass-step slope=-0.0653+/-0.0111 void-offset=+0.0334+/-0.0357 (blinded)
+wrote data/dr2_matched.csv (BLINDED differences only; absolute scale sealed)
