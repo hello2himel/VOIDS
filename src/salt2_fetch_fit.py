@@ -3,7 +3,7 @@ Reads data/salt2/pilot_sample.csv. For each: IRSA nph_light_curves POS=CIRCLE (p
 -> data/salt2/lc_<ztfid>.csv. Then sncosmo SALT2 fit (phase -15..+45, bands g/r), blinded mu.
 Blinding: offset drawn once into logs/blind_key.txt (NOT committed, gitignored); hr_blind = mu - mu_cosmo + blind.
 Tripp standardization (FIX v0.3f, mentor review): mu = mB - M + alpha*x1 - beta*c with
-mB = -2.5*log10(x0) + 25.0, fiducial alpha=0.14, beta=3.1, M absorbed into blind constant.
+mB = -2.5*log10(x0) + 10.635, fiducial alpha=0.14, beta=3.1, M_B as blinded sample mean.
 QC: phase coverage -10..+40 d rest, >=8 points, |x1|<3, |c|<0.3, MW E(B-V) via SFD cut <0.3.
 Modes: --mode fetch (IRSA only) | --mode fit (cached LCs only) | --mode both.
 Outputs data/salt2/hr_pilot.csv + plots/hr_pilot.png (pilot only, keeps main paper untouched).
@@ -58,7 +58,9 @@ import sncosmo
 from astropy.cosmology import Planck18
 from astropy.table import Table
 
-ALPHA, BETA = 0.14, 3.1  # fiducial; M absorbed into blind constant
+ALPHA, BETA = 0.14, 3.1  # fiducial Tripp coefficients
+# sncosmo SALT2 zero-point: mB = -2.5*log10(x0) + 10.635. M_B is fit below as the
+# inverse-variance sample mean of (mu_raw - mu_cosmo); blind offset (+/-0.1) only hides scale.
 
 if not os.path.exists("logs/blind_key.txt"):
     rng = np.random.default_rng(20260930)
@@ -118,16 +120,24 @@ for _, r in todo.iterrows():
             print(f"QC-FAIL {r.ztfid} x1={p['x1']:.2f} c={p['c']:.3f}")
             n_fail_qc += 1
             continue
-        mB = -2.5 * np.log10(p["x0"]) + 25.0
-        mu = mB + ALPHA * p["x1"] - BETA * p["c"]  # M absorbed in blind
+        mB = -2.5 * np.log10(p["x0"]) + MB_ZP  # 10.635 sncosmo SALT2 definition
+        mu = mB + ALPHA * p["x1"] - BETA * p["c"]  # M_B fit below as sample mean
         mu_cosmo = Planck18.distmod(r.z).value
         rows.append(dict(ztfid=r.ztfid, z=r.z, env=r.env, x1=p["x1"],
-                         c=p["c"], mu_raw=mu,
-                         hr_blind=(mu - mu_cosmo + blind)))
+                         x1err=res.errors.get("x1", np.nan) if hasattr(res, "errors") else np.nan,
+                         c=p["c"], t0=p["t0"],
+                         chisq=res.chisq if hasattr(res, "chisq") else np.nan,
+                         ndof=res.ndof if hasattr(res, "ndof") else np.nan,
+                         mu_raw=mu, mu_cosmo=mu_cosmo))
         print(f"FIT {r.ztfid} {r.env} x1={p['x1']:.2f} c={p['c']:.3f}", flush=True)
     except Exception as e:
         print(f"FITFAIL {r.ztfid}: {str(e)[:200]}", flush=True)
 hr = pd.DataFrame(rows)
+if len(hr):
+    hr["resid"] = hr.mu_raw - hr.mu_cosmo
+    M_fit = float(hr.resid.mean())  # blinded absolute scale; cancels in void-wall difference
+    hr["hr_blind"] = hr.resid - M_fit + blind
+    print(f"M_fit(blinded zero-point) computed over N={len(hr)}; DeltaHR independent of it")
 hr.to_csv("data/salt2/hr_pilot.csv", index=False)
 print(f"fitted {len(hr)}/{len(sample)}; wrote data/salt2/hr_pilot.csv (BLINDED offsets)")
 if len(hr):

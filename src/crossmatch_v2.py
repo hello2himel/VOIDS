@@ -12,7 +12,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-H = 0.7
+H = 0.6766  # Planck18 H0/100 (astropy Planck18 H0=67.66); single-h consistency (no 0.7 mix)
 # Mask: (360,180) bool, RA 0-360 deg x Dec -90..90? Verify via metadata
 with open("data/vast/NSA_main_mask.pickle","rb") as f:
     mask, meta0, meta1 = pickle.load(f)
@@ -39,12 +39,12 @@ with open("data/vast/VoidFinder-nsa_v1_0_1_Planck2018_comoving_maximal.txt",enco
         r_comov_h = float(p[6]); ra,dec,reff = float(p[7]),float(p[8]),float(p[9])
         # Unit conversion only: Mpc/h -> Mpc
         Rmax = radius/H; Reff = reff/H; D = r_comov_h/H
-        # Recomputed XYZ from RA,Dec,D in same frame as SNe
+        # Recomputed XYZ from RA,Dec,D in same frame as SNe (USED in tree: single-h Planck18)
         lon = np.deg2rad(ra); lat = np.deg2rad(dec)
         Xr = D*np.cos(lat)*np.cos(lon); Yr = D*np.cos(lat)*np.sin(lon); Zr = D*np.sin(lat)
         Xs, Ys, Zs = x/H, y/H, z/H
         resid = np.linalg.norm([Xr-Xs, Yr-Ys, Zr-Zs])
-        voids.append((Xs,Ys,Zs,Rmax,Reff,ra,dec,D,resid))
+        voids.append((Xr,Yr,Zr,Rmax,Reff,ra,dec,D,resid))
 vxyz=np.array([[v[0],v[1],v[2]] for v in voids]); vrad=np.array([v[3] for v in voids])
 res=np.array([v[8] for v in voids])
 print(f"voids={len(voids)} median_Rmax_Mpc={np.median(vrad):.1f} (= {np.median(vrad)*H:.1f} Mpc/h)")

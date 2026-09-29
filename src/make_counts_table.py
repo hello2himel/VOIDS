@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 from scipy.spatial import cKDTree
 
-H = 0.7
+H = 0.6766  # Planck18 H0/100; single-h consistency with crossmatch_v2
 with open("data/vast/NSA_main_mask.pickle", "rb") as f:
     mask, _, _ = pickle.load(f)
 
