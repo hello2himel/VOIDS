@@ -42,10 +42,17 @@ if args.mode in ("fetch", "both"):
             q = requests.get(URL, params=params, timeout=120)
             q.raise_for_status()
             open(out, "w").write(q.text)
+            low = q.text[:2000].lower()
+            if "mjd" not in low or ("filtercode" not in low and "filter" not in low):
+                os.remove(out)
+                print(f"JUNK {r.ztfid} ({len(q.text)} bytes, no table) deleted", flush=True)
+                continue
             fetched.append(out)
             print(f"fetched {r.ztfid} {len(q.text)} bytes", flush=True)
         except Exception as e:
             print(f"FAIL {r.ztfid}: {e}", flush=True)
+            if os.path.exists(out) and os.path.getsize(out) < 1000:
+                os.remove(out)
         time.sleep(1)
     print(f"fetched {len(fetched)}/{len(sample)}")
     pd.Series(fetched).to_csv("data/salt2/fetched.txt", index=False)
@@ -59,6 +66,7 @@ from astropy.cosmology import Planck18
 from astropy.table import Table
 
 ALPHA, BETA = 0.14, 3.1  # fiducial Tripp coefficients
+MB_ZP = 10.635  # sncosmo SALT2 definition: mB = -2.5*log10(x0) + 10.635
 # sncosmo SALT2 zero-point: mB = -2.5*log10(x0) + 10.635. M_B is fit below as the
 # inverse-variance sample mean of (mu_raw - mu_cosmo); blind offset (+/-0.1) only hides scale.
 
@@ -105,19 +113,38 @@ for _, r in todo.iterrows():
     else:
         continue
     data = data[(data["mjd"] > 56000) & (data["mjd"] < 70000)]
+    t0g = float(r.get("t0_guess", float("nan"))) if "t0_guess" in r else float("nan")
+    if np.isfinite(t0g):
+        data = data[(data["mjd"] > t0g - 120) & (data["mjd"] < t0g + 200)]
     if len(data) < 8:
         print(f"SKIP {r.ztfid} only {len(data)} points")
         continue
     try:
+        t0g = float(r.get("t0_guess", float("nan"))) if "t0_guess" in r else float("nan")
+        t0_bounds = (t0g - 40.0, t0g + 40.0) if np.isfinite(t0g) else None
+        kwargs = dict(bounds={"z": (r.z - 0.005, r.z + 0.005)})
+        if t0_bounds is not None:
+            kwargs["bounds"]["t0"] = t0_bounds
         res, fitted = sncosmo.fit_lc(
             data, model,
             ["z", "t0", "x0", "x1", "c"],
-            bounds={"z": (r.z - 0.005, r.z + 0.005)},
+            **kwargs,
         )
+        if not getattr(res, "success", True):
+            print(f"QC-FAIL {r.ztfid} minimizer not converged")
+            n_fail_qc += 1
+            continue
         p = dict(zip(res.param_names, fitted.parameters))
         # QC cuts
         if abs(p["x1"]) > 3 or abs(p["c"]) > 0.3:
             print(f"QC-FAIL {r.ztfid} x1={p['x1']:.2f} c={p['c']:.3f}")
+            n_fail_qc += 1
+            continue
+        # Rest-frame phase coverage: >=1 point pre-max and post-max
+        t0 = p["t0"]
+        ph = (np.asarray(data["mjd"]) - t0) / (1.0 + r.z)
+        if not (np.any(ph < 0) and np.any((ph > 10) & (ph < 45))):
+            print(f"QC-FAIL {r.ztfid} no pre/post-max coverage")
             n_fail_qc += 1
             continue
         mB = -2.5 * np.log10(p["x0"]) + MB_ZP  # 10.635 sncosmo SALT2 definition

@@ -28,7 +28,18 @@ for _, r in pilot_void.iterrows():
             break
 pilot_wall = wall_ia.loc[picks]
 pilot = pd.concat([pilot_void.assign(env="void"), pilot_wall.assign(env="wall")])
-pilot[["ztfid", "type", "ra", "dec", "z", "env"]].to_csv("data/salt2/pilot_sample.csv", index=False)
+# Peak epoch for t0 bounds: BTS peakt is JD-2458000 -> MJD = peakt + 2458000 - 2400000.5
+import csv as _csv
+peak = {}
+with open("data/bts/bts_explorer_quality.csv", encoding="utf-8-sig") as _f:
+    for _row in _csv.DictReader(_l for _l in _f if _l.strip()):
+        try:
+            _p = float(_row["peakt"])
+            peak[_row["ZTFID"].strip()] = _p + 2458000.0 - 2400000.5
+        except Exception:
+            continue
+pilot["t0_guess"] = pilot.ztfid.map(peak)
+pilot[["ztfid", "type", "ra", "dec", "z", "env", "t0_guess"]].to_csv("data/salt2/pilot_sample.csv", index=False)
 print(f"pilot: void {len(pilot_void)} wall {len(pilot_wall)}")
 print(pilot[["ztfid", "z", "env"]].to_string())
 print("wrote data/salt2/pilot_sample.csv (lightcurve fetch = step 2)")
