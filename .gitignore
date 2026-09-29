@@ -16,3 +16,5 @@ data/
 missfont.log
 paper/mnras/
 paper/review/
+logs/blind_key.txt
+logs/

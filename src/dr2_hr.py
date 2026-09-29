@@ -29,8 +29,9 @@ m = dr2.merge(hosts[["mass", "mass_err"]], left_on="ztfname", right_on="ztfname"
 mine = m.merge(sn[["ztfid", "r_Rv"]].rename(columns={"ztfid": "void_id"}),
                left_on="ztfname", right_on="void_id", how="inner")
 print(f"overlap with our Ia sample: {len(mine)}")
-mine["env"] = np.where(mine.r_Rv < 0.8, "void", "wall")
-print(mine.env.value_counts().to_dict())
+mine["env"] = np.where(mine.r_Rv < 0.8, "void", np.where((mine.r_Rv > 1.0) & np.isfinite(mine.r_Rv), "wall", "other"))
+mine = mine[mine.env.isin(["void", "wall"])].copy()
+print(mine.env.value_counts().to_dict(), "(shell/outside excluded from HR sample)")
 
 # Cosmology cuts
 q = mine[(mine.sn_type == "snia-cosmo") & (mine.sub_type == "norm")].copy()
