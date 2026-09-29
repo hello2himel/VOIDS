@@ -8,3 +8,10 @@ venvs/
 data/
 *.fits
 *.zip
+*.aux
+*.out
+*.toc
+*.bbl
+*.blg
+missfont.log
+paper/mnras/
