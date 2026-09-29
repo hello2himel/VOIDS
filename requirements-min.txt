@@ -1,4 +1,4 @@
-# VOIDS minimal repro: Python Python 3.14.7, venvs/b3, seed 42, Tue Sep 29 09:20:12 PM UTC 2026
+# VOIDS minimal repro: Python 3.14.7, venvs/b3, seeds 42/43/44 + 7, 2026-09-30
 astropy==8.0.1
 astropy-iers-data==0.2026.9.28.0.59.37
 astropy_healpix==2.0.1
