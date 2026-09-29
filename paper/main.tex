@@ -29,17 +29,18 @@ Cosmic voids fill most of the volume. Supernova luminosities trace age and metal
 \begin{table}
 \caption{Prior work vs this work.}
 \label{tab:prior}
+{\small\setlength{\tabcolsep}{3pt}
 \begin{tabular}{lllll}
 \hline
 Study & Voids & $z$ & SNe & FRBs \\
 \hline
-Wang ApJ997 & lumped spheres & $<0.05$ & heterogeneous & 0 in voids \\
-Tsaprazi MNRAS21 & density+T-web & $<0.036$ & BTS+CLU & -- \\
-Aubert A\&A694 & DR7+Voronoi & DR2 Ia & stretch only & -- \\
-Sharma 2026 & BOSS VIDE & 0.2--0.7 & -- & 3455 stacking \\
-This work & VAST DR7 $R_{\max}$ & $<0.114$ & BTS + slice & Cat1 forecast \\
+Wang & lumped & $<0.05$ & hetero. & 0 in voids \\
+Tsaprazi & dens.+web & $<0.036$ & BTS+CLU & -- \\
+Aubert & DR7+Vor. & DR2 Ia & stretch & -- \\
+Sharma & BOSS VIDE & 0.2--0.7 & -- & 3455 stack \\
+This work & VAST $R_{\max}$ & $<0.114$ & BTS+slice & Cat1 fcst \\
 \hline
-\end{tabular}
+\end{tabular}}
 \end{table}
 \section{Data}
 VAST Zenodo 7406035 v1.3.0; BTS Explorer quality and purity cuts (2026-09-30, 7143 rows); CHIME Catalog 1 Vizier J/ApJS/257/59/table2 (600 bursts, 524 sources: 506 one-off plus 94 bursts from 18 repeaters); NASA-Sloan Atlas v1\_0\_1 downloading for parent masses; Planck18 throughout.
@@ -61,7 +62,8 @@ FRB error budget (Cat1): per-sightline $\sigma_{\rm tot}\sim150$--$200\,{\rm pc\
 \section{Systematics and next steps}
 Peculiar velocities, selection efficiency, host masses, calibration, threshold grid for Hubble residuals, subtype cleaning done for counts, nulls (RA-shuffle within footprint, block bootstrap, 0.00/0.05 mag injection) planned. No unblinding until budget closed.
 \section{Data availability}
-VAST Zenodo DOI, BTS query URL and date with CSV hash, CHIME Vizier DOI, derived \texttt{b3\_match\_v2.parquet} with scripts tag v0.2 on GitHub on acceptance (reviewer token on request).
+VAST Zenodo DOI, BTS query URL and date with CSV hash, CHIME Vizier DOI, derived \path{b3_match_v2.parquet} with scripts tag v0.2 on GitHub on acceptance (reviewer token on request).
+\clearpage
 \begin{thebibliography}{99}
 \bibitem[Douglass et al.(2023)]{douglass23} Douglass K.~A.\ et al., 2023, ApJS, 265, 7
 \bibitem[Perley et al.(2020)]{perley20} Perley D.~A.\ et al., 2020, ApJ, 904, 35
