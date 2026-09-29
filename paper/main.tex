@@ -1,10 +1,10 @@
 \documentclass[fleqn,usenatbib]{mnras}
-% MNRAS Times font disabled for this TinyTeX build (missing Termes TFM); use standard Times clone
-\usepackage{mathptmx}
+% MNRAS official Times setup (TeXGyre Termes via newtx, per mnras_template.tex)
+\usepackage{newtxtext,newtxmath}
 \usepackage[T1]{fontenc}
 \usepackage{graphicx}
 \usepackage{amsmath}
-\usepackage{amssymb}
+% amssymb omitted: conflicts with newtxmath (\Bbbk); newtx covers the symbols
 \title[VOIDS: supernovae in SDSS DR7 voids]{Supernova environments in SDSS DR7 voids: ZTF BTS transients in VAST VoidFinder spheres with a CHIME FRB forecast}
 \author[H. Das]{
 Himel Das,$^{1}$\thanks{E-mail: contact via ORCID 0009-0003-7698-1255}
