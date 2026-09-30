@@ -8,6 +8,7 @@ Run: venvs/b3/bin/python src/dr2_pv.py
 """
 import numpy as np
 import pandas as pd
+from scipy.spatial import cKDTree
 
 V_CMB = 369.82  # km/s Planck dipole amplitude
 L_CMB = np.deg2rad(264.021)
@@ -73,21 +74,31 @@ with open("data/vast/VoidFinder-nsa_v1_0_1_Planck2018_comoving_maximal.txt", enc
 from astropy.coordinates import SkyCoord
 import astropy.units as uu
 from astropy.cosmology import Planck18 as P18
-qq = pd.read_csv("data/dr2_hr.csv")
-_bts = pd.read_parquet("data/b3_match_v2.parquet")[["ztfid", "host_void"]]
-qq = qq.merge(_bts, left_on="ztfname", right_on="ztfid", how="left")
+qq = pd.read_csv("data/dr2_fullx.csv")
+_dpos = pd.read_csv("data/ztf_dr2/ztfsniadr2_lite/tables/snia_data.csv", index_col=0)[["ztfname", "ra", "dec"]]
+qq = qq.merge(_dpos, on="ztfname", how="left", suffixes=("", "_dr2"))
+assert qq.ra.notna().all(), "DR2 positions must cover fullx sample"
+qq = qq[np.isfinite(qq.ra) & np.isfinite(qq.dec) & np.isfinite(qq.redshift)].copy().reset_index(drop=True)
+print(f"with positions: {len(qq)}")
 sc = SkyCoord(ra=qq.ra.values * uu.deg, dec=qq.dec.values * uu.deg,
               distance=P18.comoving_distance(qq.redshift.values))
 SX = np.vstack([sc.cartesian.x.value, sc.cartesian.y.value, sc.cartesian.z.value]).T
 zflow = qq.redshift.values.copy()
 applied = 0
-qq["void_id_num"] = pd.to_numeric(qq.host_void, errors="coerce")
+_vvx = np.array([v[0] for v in vc])
+_vvr = np.array([v[1] for v in vc])
+_vtree = cKDTree(_vvx)
+_vmax = _vvr.max()
 for i, r in qq.iterrows():
-    if not (r.r_Rv < 0.8 and np.isfinite(r.void_id_num)):
+    if not (r.r_Rv < 0.8):
         continue
-    j = int(r.void_id_num)
-    if j < 0 or j >= len(vc):
+    cand = _vtree.query_ball_point(SX[i], r=_vmax * 1.2)
+    if not cand:
         continue
+    vals = sorted(((np.linalg.norm(SX[i] - _vvx[j]) / _vvr[j]), j) for j in cand)
+    if vals[0][0] > 1.0:
+        continue
+    j = vals[0][1]
     Xc, Rv = vc[j]
     dvec = SX[i] - Xc
     dist = np.linalg.norm(dvec)
@@ -98,9 +109,10 @@ for i, r in qq.iterrows():
     zflow[i] = (r.redshift + 1.0) * (1.0 - vlos / C_KMS) - 1.0
     applied += 1
 print(f"flow correction applied to {applied} void members")
+mu_old = P18.distmod(qq.redshift).value
 mu_flow = P18.distmod(zflow).value
-resid = qq.mu_raw - mu_flow
-Mf = float(np.average(resid, weights=1 / qq.sig2))
+resid = qq.hr + mu_old - mu_flow
+Mf = float(resid.mean())
 hrf = resid - Mf
 qv = qq[qq.env == "void"]
 qw = qq[qq.env == "wall"]
