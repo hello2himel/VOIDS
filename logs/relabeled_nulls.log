@@ -1,0 +1,23 @@
+relabeled primary: void 12 wall 368
+primary matched Delta BLINDED = +0.0555 se=0.0586 (n=10)
+RA-shuffle: mean=-0.0014 sd=0.0554 frac>=obs=0.294
+bootstrap: mean=+0.0543 sd=0.0571 (vs analytic 0.0586)
+inject +0.00: recovered=+0.0529 (expect ~+0.0555)
+inject +0.05: recovered=+0.1010 (expect ~+0.1055)
+inject -0.05: recovered=+0.0053 (expect ~+0.0055)
+LOO drop ZTF18acrdmmw: Delta=+0.0439 shift=-0.0117
+LOO drop ZTF19aalzmiu: Delta=+0.0555 shift=+0.0000
+LOO drop ZTF19aaobwpx: Delta=+0.0719 shift=+0.0163
+LOO drop ZTF19abjslyw: Delta=+0.0144 shift=-0.0411
+LOO drop ZTF20aabqamf: Delta=+0.0647 shift=+0.0092
+LOO drop ZTF20aamgdkb: Delta=+0.0671 shift=+0.0116
+LOO drop ZTF20abatmsa: Delta=+0.0555 shift=+0.0000
+LOO drop ZTF20abcbxpj: Delta=+0.0757 shift=+0.0202
+LOO drop ZTF20abpqdgh: Delta=+0.0634 shift=+0.0078
+LOO drop ZTF20acfaonm: Delta=+0.0771 shift=+0.0215
+LOO drop ZTF20acxzkkf: Delta=+0.0395 shift=-0.0161
+LOO drop ZTF20acxznai: Delta=+0.0378 shift=-0.0177
+window m0.15/z0.01: Delta=+0.0508+/-0.0556 (n=10)
+window m0.25/z0.015: Delta=+0.0555+/-0.0586 (n=10)
+window m0.35/z0.02: Delta=+0.0739+/-0.0625 (n=10)
+relabeled nulls done (BLINDED)
