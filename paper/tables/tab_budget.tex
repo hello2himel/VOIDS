@@ -1,25 +1,26 @@
 \begin{table*}
-\caption{Blinded $\Delta_{\rm HR}$ systematics budget (matched analysis). Stat error $0.034$ mag dominates; systematics summed below are bounds, not detections. Sources: \texttt{logs/dr2\_nulls.log}, \texttt{logs/dr2\_pv.log}, \texttt{logs/step\_zcut.log}, \texttt{logs/mask\_buffer\_h.log}.}
+\caption{$\Delta_{\rm HR}$ systematics budget (full-volume DR2-$z$ primary analysis). Stat error $0.030$ mag dominates; systematics summed below are bounds, not detections. Sources: \texttt{logs/dr2\_nulls.log}, \texttt{logs/dr2\_pv.log}, \texttt{logs/step\_zcut.log}, \texttt{logs/mask\_buffer\_h.log}.}
 \label{tab:budget}
 {\small\setlength{\tabcolsep}{4pt}
 \begin{tabular}{llcc}
 \hline
 Source & Bound (mag) & Type & Status \\
 \hline
-RA-shuffle null & mean $+0.004$, $p=0.48$ & test & pass \\
-Block bootstrap vs analytic & $0.033$ vs $0.034$ & test & agrees \\
+RA-shuffle null & mean $+0.002$, $p=0.27$ & test & pass \\
+Block bootstrap vs analytic & $0.028$ vs $0.030$ & test & agrees \\
 Injection 0.00/0.05 & recovers exactly & test & pass \\
-Mass linear vs step & $|0.031-0.037|=0.006$ & bound & bounded \\
-$z_{\min}$ grid spread & $<0.002$ & bound & bounded \\
+Mass linear vs step & $|0.026-0.032|=0.006$ & bound & bounded \\
+$z_{\min}$ grid spread & $<0.004$ & bound & bounded \\
 CMB-frame shift & $0.005$ & bound & bounded \\
 Mask edge erosion & 2.5\% on fraction & bound & subdom. \\
 Spec-$z$-only cross-check & $+0.047\pm0.042$ vs $+0.023\pm0.034$ & test & agrees \\
+Full-volume DR2-$z$ cross-check & $+0.034\pm0.030$ vs $+0.023\pm0.034$ & test & agrees \\
 BTS-$z$ label blur & void precision 10/31 in DR2 overlap & bound & bounded \\
 Subtype purge (HR sample, BTS+DR2) & 0/396 peculiar & test & pass \\
 PV flow model & $\lesssim0.02$ mag bound & bound & bounded \\
 BTS efficiency/BBC & $\sim0.01$ mag bound & bound & bounded \\
 Combined systematic & $\sim0.029$ (quadrature) & total & -- \\
-Total (stat+syst) & $\sim0.045$ & total & -- \\
+Total (stat+syst) & $\sim0.042$ & total & -- \\
 \hline
 \end{tabular}}
 \end{table*}
