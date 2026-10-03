@@ -1,0 +1,7 @@
+BTS rows with mag: 7143
+mag 18.0-18.5: completeness ~0.92
+mag 18.5-19.0: completeness ~0.47
+mag 19.0-19.5: completeness ~0.05
+all: raw void/wall counts 142/1996=0.0711 completeness-weighted=0.0734
+Ia: raw void/wall counts 118/1493=0.0790 completeness-weighted=0.0863
+wrote logs/efficiency.log
